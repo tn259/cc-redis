@@ -43,31 +43,38 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	b := make([]byte, 1024)
-	conn.Read(b)
-	log.Println("Received:", string(b))
-	// Parse the command
+	for {
+		_, err := conn.Read(b)
+		if err != nil {
+			log.Println("Error: conn.Read():", err)
+			return
+		}
+		log.Println("Received:", string(b))
 
-	parser := &resp.CommandParser{}
-	cmd, err := parser.Parse(string(b))
-	if err != nil {
-		log.Println("Error: parser.Parse():", err)
-		rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
-		conn.Write([]byte(rErr.Serialize()))
-		return
-	}
+		// Parse the command
+		parser := &resp.CommandParser{}
+		cmd, err := parser.Parse(string(b))
+		if err != nil {
+			log.Println("Error: parser.Parse():", err)
+			rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
+			conn.Write([]byte(rErr.Serialize()))
+			continue
+		}
 
-	// Execute the command
-	res, err := cmd.Execute()
-	if err != nil {
-		log.Println("Error: cmd.Execute():", err)
-		rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
-		conn.Write([]byte(rErr.Serialize()))
-		return
-	}
+		// Execute the command
+		res, err := cmd.Execute()
+		if err != nil {
+			log.Println("Error: cmd.Execute():", err)
+			rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
+			conn.Write([]byte(rErr.Serialize()))
+			continue
+		}
 
-	// Serialize the command response
-	_, err = conn.Write([]byte(res.Serialize()))
-	if err != nil {
-		return
+		// Serialize the command response
+		_, err = conn.Write([]byte(res.Serialize()))
+		if err != nil {
+			log.Println("Error: conn.Write():", err)
+			continue
+		}
 	}
 }
