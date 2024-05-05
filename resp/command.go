@@ -1,6 +1,10 @@
 package resp
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/tn259/cc-redis/database"
+)
 
 // https://redis.io/docs/latest/develop/reference/protocol-spec/#sending-commands-to-a-redis-server
 
@@ -44,6 +48,10 @@ func (*CommandParser) Parse(input string) (Command, error) {
 		return &Ping{arg: arg1}, nil
 	case "ECHO":
 		return &Echo{arg: arg1}, nil
+	case "SET":
+		return NewSet(a)
+	case "GET":
+		return &Get{key: arg1}, nil
 	default:
 		return nil, fmt.Errorf("unknown command: %s", cmd)
 	}
@@ -68,4 +76,37 @@ type Echo struct {
 
 func (e *Echo) Execute() (Type, error) {
 	return e.arg, nil
+}
+
+// https://redis.io/docs/latest/commands/set/
+type Set struct {
+	key   *BulkString
+	value *BulkString
+}
+
+func NewSet(a *Array) (*Set, error) {
+	if len(a.Elements) != 3 {
+		return nil, fmt.Errorf("SET command requires 3 arguments")
+	}
+	key := a.Elements[1].(*BulkString)
+	value := a.Elements[2].(*BulkString)
+	return &Set{key: key, value: value}, nil
+}
+
+func (s *Set) Execute() (Type, error) {
+	database.StringsDB().Set(s.key.Value, s.value.Value)
+	return &SimpleString{Value: "OK"}, nil
+}
+
+// https://redis.io/docs/latest/commands/get/
+type Get struct {
+	key *BulkString
+}
+
+func (g *Get) Execute() (Type, error) {
+	value, ok := database.StringsDB().Get(g.key.Value)
+	if !ok {
+		return &BulkString{IsNull: true}, nil
+	}
+	return &BulkString{Value: value}, nil
 }
