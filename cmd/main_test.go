@@ -69,6 +69,33 @@ func GetTest(t *testing.T, client *redis.Client) {
 	}
 }
 
+func ExistsTest(t *testing.T, client *redis.Client) {
+	// 'key' already exists in the db
+	keys := []string{"key", "key1"}
+	cmd := client.Exists(keys...)
+	if cmd.Err() != nil {
+		t.Fatalf("Could not check if key exists: %v", cmd.Err())
+	}
+	if cmd.Val() != 1 {
+		t.Fatalf("Expected key to exist: %v", cmd.Val())
+	}
+
+	// 'key1' does not exist in the db so now set it
+	err := client.Set("key1", "value1", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+
+	// 'key1' now exists in the db
+	cmd = client.Exists(keys...)
+	if cmd.Err() != nil {
+		t.Fatalf("Could not check if key exists: %v", cmd.Err())
+	}
+	if cmd.Val() != 2 {
+		t.Fatalf("Expected key to exist: %v", cmd.Val())
+	}
+}
+
 func TestRedisCommands(t *testing.T) {
 	// Define the commands to be sent during the test
 	tests := []struct {
@@ -78,6 +105,7 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Set", test: SetTest},
 		{name: "Nil Get", test: NilGetTest},
 		{name: "Get", test: GetTest},
+		{name: "Exists", test: ExistsTest},
 		// Add more commands here...
 	}
 

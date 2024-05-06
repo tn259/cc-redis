@@ -74,6 +74,9 @@ func NewSet(a *Array) (*Set, error) {
 		}
 		i += 1
 	}
+	if expiry.IsZero() {
+		return &Set{key: key, value: value, expiry: nil}, nil
+	}
 	return &Set{key: key, value: value, expiry: &expiry}, nil
 }
 
