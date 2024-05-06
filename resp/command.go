@@ -2,6 +2,7 @@ package resp
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tn259/cc-redis/database"
 )
@@ -37,6 +38,7 @@ func (*CommandParser) Parse(input string) (Command, error) {
 	}
 
 	arg0 := a.Elements[0].(*BulkString)
+	arg0.Value = strings.ToUpper(arg0.Value)
 	var arg1 *BulkString
 	if len(a.Elements) > 1 {
 		arg1 = a.Elements[1].(*BulkString)
