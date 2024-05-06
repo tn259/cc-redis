@@ -81,6 +81,6 @@ func NewSet(a *Array) (*Set, error) {
 }
 
 func (s *Set) Execute() (Type, error) {
-	database.StringsDB().Set(s.key.Value, s.value.Value, s.expiry)
+	database.Database().Set(s.key.Value, s.value.Value, s.expiry)
 	return &SimpleString{Value: "OK"}, nil
 }

@@ -3,8 +3,6 @@ package resp
 import (
 	"fmt"
 	"strings"
-
-	"github.com/tn259/cc-redis/database"
 )
 
 // https://redis.io/docs/latest/develop/reference/protocol-spec/#sending-commands-to-a-redis-server
@@ -86,17 +84,4 @@ type Echo struct {
 
 func (e *Echo) Execute() (Type, error) {
 	return e.arg, nil
-}
-
-// https://redis.io/docs/latest/commands/get/
-type Get struct {
-	key *BulkString
-}
-
-func (g *Get) Execute() (Type, error) {
-	value, ok := database.StringsDB().Get(g.key.Value)
-	if !ok {
-		return &BulkString{IsNull: true}, nil
-	}
-	return &BulkString{Value: value}, nil
 }

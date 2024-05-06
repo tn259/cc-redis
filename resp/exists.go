@@ -23,7 +23,7 @@ func NewExists(a *Array) (*Exists, error) {
 
 func (e *Exists) Execute() (Type, error) {
 	exists := 0
-	db := database.StringsDB()
+	db := database.Database()
 	for _, key := range e.keys {
 		if _, ok := db.Get(key.Value); ok {
 			exists++

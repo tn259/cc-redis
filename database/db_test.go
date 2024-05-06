@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-func TestStringsDB_SetAndGet(t *testing.T) {
-	db := StringsDB()
+func TestDatabase_SetAndGet(t *testing.T) {
+	db := Database()
 
 	// Test Set and Get
 	key := "mykey"
@@ -23,8 +23,8 @@ func TestStringsDB_SetAndGet(t *testing.T) {
 	}
 }
 
-func TestStringsDB_SetWithExpiration_Expired(t *testing.T) {
-	db := StringsDB()
+func TestDatabase_SetWithExpiration_Expired(t *testing.T) {
+	db := Database()
 
 	// Test Set with expiration
 	key := "mykey"
@@ -50,8 +50,8 @@ func TestStringsDB_SetWithExpiration_Expired(t *testing.T) {
 	}
 }
 
-func TestStringsDB_SetWithExpiration_NotExpired(t *testing.T) {
-	db := StringsDB()
+func TestDatabase_SetWithExpiration_NotExpired(t *testing.T) {
+	db := Database()
 
 	// Test Set with
 	key := "mykey"
@@ -72,8 +72,8 @@ func TestStringsDB_SetWithExpiration_NotExpired(t *testing.T) {
 	}
 }
 
-func TestStringsDB_Delete(t *testing.T) {
-	db := StringsDB()
+func TestDatabase_Delete(t *testing.T) {
+	db := Database()
 
 	// Test Delete
 	key := "mykey"

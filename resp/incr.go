@@ -12,7 +12,7 @@ type Incr struct {
 }
 
 func (i *Incr) Execute() (Type, error) {
-	db := database.StringsDB()
+	db := database.Database()
 	value, ok := db.Get(i.key.Value)
 	if !ok {
 		db.Set(i.key.Value, "0", nil)

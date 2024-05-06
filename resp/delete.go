@@ -22,7 +22,7 @@ func NewDelete(a *Array) (*Delete, error) {
 }
 
 func (e *Delete) Execute() (Type, error) {
-	db := database.StringsDB()
+	db := database.Database()
 	for _, key := range e.keys {
 		db.Delete(key.Value)
 	}
