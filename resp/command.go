@@ -80,26 +80,6 @@ func (e *Echo) Execute() (Type, error) {
 	return e.arg, nil
 }
 
-// https://redis.io/docs/latest/commands/set/
-type Set struct {
-	key   *BulkString
-	value *BulkString
-}
-
-func NewSet(a *Array) (*Set, error) {
-	if len(a.Elements) != 3 {
-		return nil, fmt.Errorf("SET command requires 3 arguments")
-	}
-	key := a.Elements[1].(*BulkString)
-	value := a.Elements[2].(*BulkString)
-	return &Set{key: key, value: value}, nil
-}
-
-func (s *Set) Execute() (Type, error) {
-	database.StringsDB().Set(s.key.Value, s.value.Value)
-	return &SimpleString{Value: "OK"}, nil
-}
-
 // https://redis.io/docs/latest/commands/get/
 type Get struct {
 	key *BulkString
