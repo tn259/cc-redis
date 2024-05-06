@@ -60,6 +60,8 @@ func (*CommandParser) Parse(input string) (Command, error) {
 		return NewDelete(a)
 	case "INCR":
 		return &Incr{key: arg1}, nil
+	case "DECR":
+		return &Decr{key: arg1}, nil
 	default:
 		return nil, fmt.Errorf("unknown command: %s", cmd)
 	}
