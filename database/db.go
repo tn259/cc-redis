@@ -99,3 +99,27 @@ func (db *DB) ListLPush(key, value string) error {
 	l.head = n
 	return nil
 }
+
+// ListRPush adds an element to the tail of a list.
+func (db *DB) ListRPush(key, value string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	e, ok := db.data[key]
+	if !ok {
+		l := &dblist{}
+		n := &node{value: value}
+		l.head = n
+		l.tail = n
+		db.data[key] = l
+		return nil
+	}
+	l, ok := e.(*dblist)
+	if !ok {
+		return fmt.Errorf("key %s does not contain a list", key)
+	}
+	n := &node{value: value}
+	n.prev = l.tail
+	l.tail.next = n
+	l.tail = n
+	return nil
+}
