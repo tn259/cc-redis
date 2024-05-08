@@ -54,7 +54,7 @@ func (*CommandParser) Parse(input string) (Command, error) {
 		return &Get{key: arg1}, nil
 	case "EXISTS":
 		return NewExists(a)
-	case "DELETE":
+	case "DEL":
 		return NewDelete(a)
 	case "INCR":
 		return &Incr{key: arg1}, nil

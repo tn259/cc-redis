@@ -70,10 +70,15 @@ func (db *DB) Get(key string) (string, bool) {
 }
 
 // Delete deletes a key from the database.
-func (db *DB) Delete(key string) {
+func (db *DB) Delete(key string) bool {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	_, ok := db.data[key]
+	if !ok {
+		return false
+	}
 	delete(db.data, key)
+	return true
 }
 
 // ListLPush adds an element to the head of a list.

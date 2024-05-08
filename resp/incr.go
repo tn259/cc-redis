@@ -15,8 +15,7 @@ func (i *Incr) Execute() (Type, error) {
 	db := database.Database()
 	value, ok := db.Get(i.key.Value)
 	if !ok {
-		db.Set(i.key.Value, "0", nil)
-		return &Integer{Value: 0}, nil
+		value = "0"
 	}
 	intValue, err := strconv.Atoi(value)
 	if err != nil {

@@ -84,8 +84,14 @@ func GetTest(t *testing.T, client *redis.Client) {
 }
 
 func ExistsTest(t *testing.T, client *redis.Client) {
+	// 'key2' does not exist in the db so now set it
+	err := client.Set("key2", "value1", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+
 	// 'key' already exists in the db
-	keys := []string{"key", "key2"}
+	keys := []string{"key10", "key2"}
 	cmd := client.Exists(keys...)
 	if cmd.Err() != nil {
 		t.Fatalf("Could not check if key exists: %v", cmd.Err())
@@ -93,20 +99,67 @@ func ExistsTest(t *testing.T, client *redis.Client) {
 	if cmd.Val() != 1 {
 		t.Fatalf("Expected key to exist: %v", cmd.Val())
 	}
+}
 
-	// 'key1' does not exist in the db so now set it
-	err := client.Set("key2", "value1", 0).Err()
+func DeleteTest(t *testing.T, client *redis.Client) {
+	// Set a key-value pair
+	err := client.Set("key", "value", 0).Err()
 	if err != nil {
 		t.Fatalf("Could not set key-value pair: %v", err)
 	}
 
-	// 'key1' now exists in the db
-	cmd = client.Exists(keys...)
+	// Check key exists
+	cmd := client.Exists("key")
 	if cmd.Err() != nil {
 		t.Fatalf("Could not check if key exists: %v", cmd.Err())
 	}
-	if cmd.Val() != 2 {
+	if cmd.Val() != 1 {
 		t.Fatalf("Expected key to exist: %v", cmd.Val())
+	}
+
+	// Delete a key that exists
+	cmd = client.Del([]string{"key", "key10"}...)
+	if cmd.Err() != nil {
+		t.Fatalf("Could not delete key: %v", cmd.Err())
+	}
+
+	// Check key does not exist
+	if cmd.Val() != 1 {
+		t.Fatalf("Expected key to be deleted: %v", cmd.Val())
+	}
+}
+
+func IncrTest(t *testing.T, client *redis.Client) {
+	// Set a key-value pair
+	err := client.Set("stringkey", "qwerty", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Incr("stringkey").Err()
+	if err == nil {
+		t.Fatalf("Expected error: %v", err)
+	}
+
+	// Increment a key that does not exist
+	cmd := client.Incr("nonexistentkey")
+	if cmd.Err() != nil {
+		t.Fatalf("Could not increment key: %v", cmd.Err())
+	}
+	if cmd.Val() != 1 {
+		t.Fatalf("Expected value to be 1: %v", cmd.Val())
+	}
+
+	// Increment a key that exists
+	err = client.Set("intkey", "23", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	cmd = client.Incr("intkey")
+	if cmd.Err() != nil {
+		t.Fatalf("Could not increment key: %v", cmd.Err())
+	}
+	if cmd.Val() != 24 {
+		t.Fatalf("Expected value to be24: %v", cmd.Val())
 	}
 }
 
@@ -120,6 +173,8 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Nil Get", test: NilGetTest},
 		{name: "Get", test: GetTest},
 		{name: "Exists", test: ExistsTest},
+		{name: "Delete", test: DeleteTest},
+		{name: "Incr", test: IncrTest},
 		// Add more commands here...
 	}
 
