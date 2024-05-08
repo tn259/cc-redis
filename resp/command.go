@@ -60,6 +60,12 @@ func (*CommandParser) Parse(input string) (Command, error) {
 		return &Incr{key: arg1}, nil
 	case "DECR":
 		return &Decr{key: arg1}, nil
+	case "LPUSH":
+		return NewLPush(a)
+	case "RPUSH":
+		return NewRPush(a)
+	case "SAVE":
+		return &Save{}, nil
 	default:
 		return nil, fmt.Errorf("unknown command: %s", cmd)
 	}

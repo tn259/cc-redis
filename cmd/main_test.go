@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -15,6 +16,19 @@ func start(t *testing.T) {
 	cmd = exec.Command("go", "run", "main.go")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Could not start Redis server: %v", err)
+	}
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	for {
+		_, err := client.Ping().Result()
+		if err == nil {
+			fmt.Println("Redis server is ready")
+			break
+		}
+		fmt.Println("Waiting for Redis server to start...")
 	}
 }
 func stop(t *testing.T) {
@@ -71,7 +85,7 @@ func GetTest(t *testing.T, client *redis.Client) {
 
 func ExistsTest(t *testing.T, client *redis.Client) {
 	// 'key' already exists in the db
-	keys := []string{"key", "key1"}
+	keys := []string{"key", "key2"}
 	cmd := client.Exists(keys...)
 	if cmd.Err() != nil {
 		t.Fatalf("Could not check if key exists: %v", cmd.Err())
@@ -81,7 +95,7 @@ func ExistsTest(t *testing.T, client *redis.Client) {
 	}
 
 	// 'key1' does not exist in the db so now set it
-	err := client.Set("key1", "value1", 0).Err()
+	err := client.Set("key2", "value1", 0).Err()
 	if err != nil {
 		t.Fatalf("Could not set key-value pair: %v", err)
 	}
@@ -112,17 +126,15 @@ func TestRedisCommands(t *testing.T) {
 	// Start the Redis server
 	start(t)
 	defer stop(t)
+	// Create a Redis client
+	client := redis.NewClient(&redis.Options{
+
+		Addr:     "localhost:6379", // address of your Redis server
+		Password: "",               // no password
+		DB:       0,                // use default DB
+	})
 	// Execute the test function for each command
 	for _, tt := range tests {
-
-		// Create a Redis client
-		client := redis.NewClient(&redis.Options{
-
-			Addr:     "localhost:6379", // address of your Redis server
-			Password: "",               // no password
-			DB:       0,                // use default DB
-		})
-
 		t.Run(tt.name, func(t *testing.T) {
 			// Execute the test function
 			tt.test(t, client)

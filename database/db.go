@@ -123,3 +123,8 @@ func (db *DB) ListRPush(key, value string) error {
 	l.tail = n
 	return nil
 }
+
+// Write rdb file
+func (db *DB) Save() error {
+	return nil
+}
