@@ -1,34 +1,32 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis"
 )
 
 var cmd *exec.Cmd
 
-func start(t *testing.T) {
+func start(t *testing.T, client *redis.Client, startup bool) {
 	// Start your Redis server...
-	cmd = exec.Command("go", "run", "main.go")
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("Could not start Redis server: %v", err)
+	if startup {
+		cmd = exec.Command("go", "run", "main.go")
+		if err := cmd.Start(); err != nil {
+			t.Fatalf("Could not start Redis server: %v", err)
+		}
 	}
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
 	for {
 		_, err := client.Ping().Result()
 		if err == nil {
-			fmt.Println("Redis server is ready")
+			t.Log("Redis server is ready")
 			break
 		}
-		fmt.Println("Waiting for Redis server to start...")
+		t.Log("Waiting for Redis server to start...")
+		time.Sleep(2 * time.Second)
 	}
 }
 func stop(t *testing.T) {
@@ -163,6 +161,40 @@ func IncrTest(t *testing.T, client *redis.Client) {
 	}
 }
 
+func DecrTest(t *testing.T, client *redis.Client) {
+	// Set a key-value pair
+	err := client.Set("stringkey2", "qwerty", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Decr("stringkey2").Err()
+	if err == nil {
+		t.Fatalf("Expected error: %v", err)
+	}
+
+	// Decrement a key that does not exist
+	cmd := client.Decr("nonexistentkey2")
+	if cmd.Err() != nil {
+		t.Fatalf("Could not decrement key: %v", cmd.Err())
+	}
+	if cmd.Val() != -1 {
+		t.Fatalf("Expected value to be -1: %v", cmd.Val())
+	}
+
+	// Decrement a key that exists
+	err = client.Set("intkey2", "23", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	cmd = client.Decr("intkey2")
+	if cmd.Err() != nil {
+		t.Fatalf("Could not decrement key: %v", cmd.Err())
+	}
+	if cmd.Val() != 22 {
+		t.Fatalf("Expected value to be 22: %v", cmd.Val())
+	}
+}
+
 func TestRedisCommands(t *testing.T) {
 	// Define the commands to be sent during the test
 	tests := []struct {
@@ -175,19 +207,22 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Exists", test: ExistsTest},
 		{name: "Delete", test: DeleteTest},
 		{name: "Incr", test: IncrTest},
+		{name: "Decr", test: DecrTest},
 		// Add more commands here...
 	}
 
-	// Start the Redis server
-	start(t)
-	defer stop(t)
 	// Create a Redis client
 	client := redis.NewClient(&redis.Options{
-
 		Addr:     "localhost:6379", // address of your Redis server
 		Password: "",               // no password
 		DB:       0,                // use default DB
 	})
+	// Start the Redis server
+	startRedis := false
+	start(t, client, startRedis)
+	if startRedis {
+		defer stop(t)
+	}
 	// Execute the test function for each command
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -195,4 +230,6 @@ func TestRedisCommands(t *testing.T) {
 			tt.test(t, client)
 		})
 	}
+	// Close the client
+	client.Close()
 }
