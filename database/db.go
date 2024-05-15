@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -127,6 +128,52 @@ func (db *DB) ListRPush(key, value string) error {
 	l.tail.next = n
 	l.tail = n
 	return nil
+}
+
+func (db *DB) ListRange(key, start, stop string) ([]string, error) {
+	startInt, err := strconv.Atoi(start)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start index %s", start)
+	}
+	stopInt, err := strconv.Atoi(stop)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stop index %s", stop)
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	e, ok := db.data[key]
+	if !ok {
+		return nil, fmt.Errorf("key %s does not exist", key)
+	}
+	l, ok := e.(*dblist)
+	if !ok {
+		return nil, fmt.Errorf("key %s does not contain a list", key)
+	}
+	var values []string
+	if startInt < 0 {
+		startInt = len(values) + startInt
+	}
+	if startInt < 0 {
+		startInt = 0
+	}
+	if startInt >= len(values) {
+		return nil, nil
+	}
+	if stopInt < 0 {
+		stopInt = len(values) + stopInt
+	}
+	if stopInt < 0 {
+		return nil, nil
+	}
+	if stopInt >= len(values) {
+		stopInt = len(values) - 1
+	}
+	for i, n := 0, l.head; n != nil; i, n = i+1, n.next {
+		if i >= startInt && i <= stopInt {
+			values = append(values, n.value)
+		}
+	}
+	return values, nil
 }
 
 // Write rdb file
