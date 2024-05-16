@@ -149,24 +149,28 @@ func (db *DB) ListRange(key, start, stop string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("key %s does not contain a list", key)
 	}
-	var values []string
+	values := []string{}
+	listLen := 0
+	for n := l.head; n != nil; n = n.next {
+		listLen++
+	}
 	if startInt < 0 {
-		startInt = len(values) + startInt
+		startInt = listLen + startInt
 	}
 	if startInt < 0 {
 		startInt = 0
 	}
-	if startInt >= len(values) {
-		return nil, nil
+	if startInt >= listLen {
+		return values, nil
 	}
 	if stopInt < 0 {
-		stopInt = len(values) + stopInt
+		stopInt = listLen + stopInt
 	}
 	if stopInt < 0 {
-		return nil, nil
+		return values, nil
 	}
-	if stopInt >= len(values) {
-		stopInt = len(values) - 1
+	if stopInt >= listLen {
+		stopInt = listLen - 1
 	}
 	for i, n := 0, l.head; n != nil; i, n = i+1, n.next {
 		if i >= startInt && i <= stopInt {
