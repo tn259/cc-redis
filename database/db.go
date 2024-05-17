@@ -64,22 +64,26 @@ func (db *DB) Get(key string) (string, bool) {
 	if s.expiry != nil && s.expiry.Before(time.Now()) {
 		// Passive expiry
 		// TODO implement active expiry - https://redis.io/commands/expire
-		db.Delete(key)
+		db.Delete([]string{key})
 		return "", false
 	}
 	return s.value, ok
 }
 
 // Delete deletes a key from the database.
-func (db *DB) Delete(key string) bool {
+func (db *DB) Delete(keys []string) int {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	_, ok := db.data[key]
-	if !ok {
-		return false
+	c := 0
+	for _, key := range keys {
+		_, ok := db.data[key]
+		if !ok {
+			continue
+		}
+		delete(db.data, key)
+		c++
 	}
-	delete(db.data, key)
-	return true
+	return c
 }
 
 // ListLPush adds an element to the head of a list.

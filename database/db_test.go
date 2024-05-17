@@ -80,7 +80,11 @@ func TestDatabase_Delete(t *testing.T) {
 	value := "myvalue"
 	db.Set(key, value, nil)
 
-	db.Delete(key)
+	keys := []string{key, "nonexisitentkey"}
+	c := db.Delete(keys)
+	if c != 1 {
+		t.Errorf("Expected 1 key to be deleted, got %d", c)
+	}
 
 	_, ok := db.Get(key)
 	if ok {

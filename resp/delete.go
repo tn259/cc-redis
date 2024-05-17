@@ -22,13 +22,11 @@ func NewDelete(a *Array) (*Delete, error) {
 }
 
 func (e *Delete) Execute() (Type, error) {
-	c := 0
 	db := database.Database()
-	for _, key := range e.keys {
-		deleted := db.Delete(key.Value)
-		if deleted {
-			c++
-		}
+	strKeys := make([]string, len(e.keys))
+	for i, key := range e.keys {
+		strKeys[i] = key.Value
 	}
+	c := db.Delete(strKeys)
 	return &Integer{Value: c}, nil
 }
