@@ -64,6 +64,8 @@ func (*CommandParser) Parse(input string) (Command, error) {
 		return NewLPush(a)
 	case "RPUSH":
 		return NewRPush(a)
+	case "LRANGE":
+		return NewLRange(a)
 	case "SAVE":
 		return &Save{}, nil
 	default:

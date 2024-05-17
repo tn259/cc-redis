@@ -195,6 +195,40 @@ func DecrTest(t *testing.T, client *redis.Client) {
 	}
 }
 
+func ListTest(t *testing.T, client *redis.Client) {
+	// Set a key-value pair
+	err := client.LPush("mylist", "value1").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.LPush("mylist", "value2").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.RPush("mylist", "value3").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+
+	// Get a range of values
+	cmd := client.LRange("mylist", 0, -1)
+	if cmd.Err() != nil {
+		t.Fatalf("Could not get range of values: %v", cmd.Err())
+	}
+	if len(cmd.Val()) != 3 {
+		t.Fatalf("Expected list length to be 3: %v", len(cmd.Val()))
+	}
+	if cmd.Val()[0] != "value2" {
+		t.Fatalf("Expected value to be 'value2': %v", cmd.Val()[0])
+	}
+	if cmd.Val()[1] != "value1" {
+		t.Fatalf("Expected value to be 'value1': %v", cmd.Val()[1])
+	}
+	if cmd.Val()[2] != "value3" {
+		t.Fatalf("Expected value to be 'value3': %v", cmd.Val()[2])
+	}
+}
+
 func TestRedisCommands(t *testing.T) {
 	// Define the commands to be sent during the test
 	tests := []struct {
@@ -208,6 +242,7 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Delete", test: DeleteTest},
 		{name: "Incr", test: IncrTest},
 		{name: "Decr", test: DecrTest},
+		{name: "ListTest", test: ListTest},
 		// Add more commands here...
 	}
 
