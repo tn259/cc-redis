@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// Open log file
-	lf, err := os.OpenFile("cc-redis.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	lf, err := os.OpenFile("cc-redis.log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}

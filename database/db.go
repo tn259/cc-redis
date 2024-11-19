@@ -53,7 +53,6 @@ func (db *DB) Set(key, value string, expiry *time.Time) {
 func (db *DB) Get(key string) (string, bool) {
 	db.mu.RLock()
 	e, ok := db.data[key]
-	db.mu.RUnlock()
 	if !ok {
 		return "", false
 	}
@@ -62,11 +61,13 @@ func (db *DB) Get(key string) (string, bool) {
 		return "", false
 	}
 	if s.expiry != nil && s.expiry.Before(time.Now()) {
+		db.mu.RUnlock()
 		// Passive expiry
 		// TODO implement active expiry - https://redis.io/commands/expire
 		db.Delete([]string{key})
 		return "", false
 	}
+	db.mu.RUnlock()
 	return s.value, ok
 }
 
@@ -186,5 +187,6 @@ func (db *DB) ListRange(key, start, stop string) ([]string, error) {
 
 // Write rdb file
 func (db *DB) Save() error {
-	return nil
+	writer := &RDBWriter{db: db}
+	return writer.Write()
 }
