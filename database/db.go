@@ -54,10 +54,12 @@ func (db *DB) Get(key string) (string, bool) {
 	db.mu.RLock()
 	e, ok := db.data[key]
 	if !ok {
+		db.mu.RUnlock()
 		return "", false
 	}
 	s, ok := e.(dbstring)
 	if !ok {
+		db.mu.RUnlock()
 		return "", false
 	}
 	if s.expiry != nil && s.expiry.Before(time.Now()) {
