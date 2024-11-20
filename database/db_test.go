@@ -27,7 +27,7 @@ func TestDatabase_SetWithExpiration_Expired(t *testing.T) {
 	db := Database()
 
 	// Test Set with expiration
-	key := "mykey"
+	key := "mykey2"
 	value := "myvalue"
 	expiry := time.Now().Add(5 * time.Second)
 	db.Set(key, value, &expiry)
@@ -54,7 +54,7 @@ func TestDatabase_SetWithExpiration_NotExpired(t *testing.T) {
 	db := Database()
 
 	// Test Set with
-	key := "mykey"
+	key := "mykey3"
 	value := "myvalue"
 	expiry := time.Now().Add(5 * time.Minute)
 	db.Set(key, value, &expiry)
@@ -76,7 +76,7 @@ func TestDatabase_Delete(t *testing.T) {
 	db := Database()
 
 	// Test Delete
-	key := "mykey"
+	key := "mykey4"
 	value := "myvalue"
 	db.Set(key, value, nil)
 
@@ -123,7 +123,7 @@ func TestDatabase_ListRPush(t *testing.T) {
 	db := Database()
 
 	// Test ListRPush
-	key := "mylist"
+	key := "mylist2"
 	value1 := "myvalue"
 	db.ListRPush(key, value1)
 	value2 := "myvalue2"
@@ -150,7 +150,7 @@ func TestDatabase_ListRange(t *testing.T) {
 	db := Database()
 
 	// Test ListRange
-	key := "mylist"
+	key := "mylist3"
 	value1 := "myvalue"
 	db.ListRPush(key, value1)
 	value2 := "myvalue2"
