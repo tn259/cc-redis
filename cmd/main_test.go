@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"os/exec"
+	"syscall"
 	"testing"
 	"time"
 
@@ -15,6 +15,10 @@ func start(t *testing.T, client *redis.Client, startup bool) {
 	// Start your Redis server...
 	if startup {
 		cmd = exec.Command("go", "run", "main.go")
+		// Create a new process group to terminate child processes
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Could not start Redis server: %v", err)
 		}
@@ -34,15 +38,13 @@ func stop(t *testing.T) {
 	if cmd == nil || cmd.Process == nil {
 		t.Fatalf("Could not stop Redis server: process is nil")
 	}
-	if err := cmd.Process.Signal(os.Interrupt); err != nil {
-		t.Fatalf("Could not stop Redis server: %v", err)
-		err := cmd.Process.Kill()
-		if err != nil {
-			t.Fatalf("Could not kill Redis server: %v", err)
-		}
+	pgid, err := syscall.Getpgid(cmd.Process.Pid)
+	if err != nil {
+		t.Fatalf("Could not get pgid of Redis Server: %v", err)
 	}
-	// Wait for the process to exit
-	cmd.Wait()
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+		t.Fatalf("Could not stop Redis server: %v", err)
+	}
 }
 
 func SetTest(t *testing.T, client *redis.Client) {
@@ -253,7 +255,7 @@ func TestRedisCommands(t *testing.T) {
 		DB:       0,                // use default DB
 	})
 	// Start the Redis server
-	startRedis := false
+	startRedis := true
 	start(t, client, startRedis)
 	if startRedis {
 		defer stop(t)
