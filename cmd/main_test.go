@@ -332,6 +332,7 @@ func TestRedisCommands_ReadOnStartup(t *testing.T) {
 		defer func() {
 			client.Close()
 			stop(t)
+			removeFile(t, database.RDBFilename)
 		}()
 	}
 	// Check if the data is loaded

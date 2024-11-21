@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/tn259/cc-redis/database"
 	"github.com/tn259/cc-redis/resp"
 )
 
@@ -17,6 +18,9 @@ func main() {
 	defer lf.Close()
 	log.SetOutput(lf)
 	log.Printf("Starting cc-redis")
+
+	// Init the database
+	_ = database.Database()
 
 	// Listen for client connections on port 6379
 	listener, err := net.Listen("tcp", ":6379")
