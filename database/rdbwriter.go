@@ -15,7 +15,7 @@ func NewRDBWriter(db *DB) *RDBWriter {
 
 func (r *RDBWriter) Write() error {
 	// https://rdb.fnordig.de/file_format.html#redis-rdb-file-format
-	file, err := os.Create("dump.rdb")
+	file, err := os.Create(RDBFilename)
 	if err != nil {
 		return err
 	}
@@ -25,17 +25,17 @@ func (r *RDBWriter) Write() error {
 	defer db.mu.RUnlock()
 
 	// Magic number
-	_, err = file.Write([]byte("REDIS"))
+	_, err = file.Write([]byte(RDBMagicNumber))
 	if err != nil {
 		return err
 	}
 	// RDB Version number
-	_, err = file.Write([]byte{0, 0, 0, 6})
+	_, err = file.Write([]byte(RDBVersion))
 	if err != nil {
 		return err
 	}
 	// Database 0 selector
-	_, err = file.Write([]byte{0xFE, 00})
+	_, err = file.Write([]byte(RDBDatabaseSelector))
 	if err != nil {
 		return err
 	}
@@ -50,12 +50,12 @@ func (r *RDBWriter) Write() error {
 		// Encoding the Value
 		switch v := value.(type) {
 		case dbstring:
-			err = rdbWriteString(v.value, file)
+			err = rdbWriteStringValue(v.value, file)
 			if err != nil {
 				return err
 			}
 		case *dblist:
-			err = rdbWriteList(v, file)
+			err = rdbWriteListValue(v, file)
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func (r *RDBWriter) Write() error {
 		}
 	}
 	// End of the RDB file
-	_, err = file.Write([]byte{0xFF})
+	_, err = file.Write([]byte(RDBEOF))
 	if err != nil {
 		return err
 	}
@@ -78,16 +78,18 @@ func (r *RDBWriter) Write() error {
 	return nil
 }
 
-func rdbWriteString(s string, f *os.File) error {
-	// Encoded as a length-prefixed string
-	// https://rdb.fnordig.de/file_format.html#encoding-strings
-	_, err := f.Write([]byte{0}) // String type
+func rdbWriteStringValue(s string, f *os.File) error {
+	_, err := f.Write([]byte(RDBStringType)) // String type
 	if err != nil {
 		return err
 	}
+	return rdbWriteString(s, f)
+}
+
+func rdbWriteString(s string, f *os.File) error {
 	// Length Prefixed String for the key
 	// TODO handle keys with length > 63
-	_, err = f.Write([]byte{byte(len(s))})
+	_, err := f.Write([]byte{byte(len(s))})
 	if err != nil {
 		return err
 	}
@@ -98,10 +100,9 @@ func rdbWriteString(s string, f *os.File) error {
 	return nil
 }
 
-func rdbWriteList(l *dblist, f *os.File) error {
+func rdbWriteListValue(l *dblist, f *os.File) error {
 	// Encoded as a list
-	// https://rdb.fnordig.de/file_format.html#list-encoding
-	_, err := f.Write([]byte{1}) // List type
+	_, err := f.Write([]byte(RDBListType)) // List type
 	if err != nil {
 		return err
 	}
@@ -116,12 +117,7 @@ func rdbWriteList(l *dblist, f *os.File) error {
 	}
 	for n := l.head; n != nil; n = n.next {
 		// Length Prefixed String for the list element
-		// TODO handle list values with length > 63
-		_, err = f.Write([]byte{byte(len(n.value))})
-		if err != nil {
-			return err
-		}
-		_, err = f.Write([]byte(n.value))
+		err = rdbWriteString(n.value, f)
 		if err != nil {
 			return err
 		}

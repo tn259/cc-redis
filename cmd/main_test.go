@@ -1,16 +1,26 @@
 package main
 
 import (
+	"bytes"
+	"os"
 	"os/exec"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/tn259/cc-redis/database"
 )
 
 var cmd *exec.Cmd
 
+func newClient() *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+}
 func start(t *testing.T, client *redis.Client, startup bool) {
 	// Start your Redis server...
 	if startup {
@@ -44,6 +54,33 @@ func stop(t *testing.T) {
 	}
 	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
 		t.Fatalf("Could not stop Redis server: %v", err)
+	}
+}
+func fileContentsEqual(t *testing.T, file1, file2 string) bool {
+	// The files we are testing are not intended to be large
+	b1, err := os.ReadFile(file1)
+	if err != nil {
+		t.Fatalf("Could not read file: %v", err)
+	}
+	b2, err := os.ReadFile(file2)
+	if err != nil {
+		t.Fatalf("Could not read file: %v", err)
+	}
+
+	return bytes.Equal(b1, b2)
+}
+func copyFile(t *testing.T, src, dst string) {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("Could not read file: %v", err)
+	}
+	if err := os.WriteFile(dst, b, 0666); err != nil {
+		t.Fatalf("Could not write file: %v", err)
+	}
+}
+func removeFile(t *testing.T, file string) {
+	if err := os.Remove(file); err != nil {
+		t.Fatalf("Could not remove file: %v", err)
 	}
 }
 
@@ -231,6 +268,20 @@ func ListTest(t *testing.T, client *redis.Client) {
 	}
 }
 
+func SaveTest(t *testing.T, client *redis.Client) {
+	// At this point the redis should have the following data...
+	// Save the database
+	cmd := client.Save()
+	if cmd.Err() != nil {
+		t.Fatalf("Could not save the database: %v", cmd.Err())
+	}
+	defer removeFile(t, database.RDBFilename)
+	// Direct file comparison
+	if !fileContentsEqual(t, database.RDBFilename, database.RDBFilename+".test") {
+		t.Fatalf("Expected files to be equal")
+	}
+}
+
 func TestRedisCommands(t *testing.T) {
 	// Define the commands to be sent during the test
 	tests := []struct {
@@ -245,20 +296,20 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Incr", test: IncrTest},
 		{name: "Decr", test: DecrTest},
 		{name: "ListTest", test: ListTest},
+		{name: "Save", test: SaveTest},
 		// Add more commands here...
 	}
 
 	// Create a Redis client
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // address of your Redis server
-		Password: "",               // no password
-		DB:       0,                // use default DB
-	})
+	client := newClient()
 	// Start the Redis server
 	startRedis := true
 	start(t, client, startRedis)
 	if startRedis {
-		defer stop(t)
+		defer func() {
+			client.Close()
+			stop(t)
+		}()
 	}
 	// Execute the test function for each command
 	for _, tt := range tests {
@@ -267,6 +318,30 @@ func TestRedisCommands(t *testing.T) {
 			tt.test(t, client)
 		})
 	}
-	// Close the client
-	client.Close()
+}
+
+func TestRedisCommands_ReadOnStartup(t *testing.T) {
+	// Copy the test RDB file to the actual RDB file
+	copyFile(t, database.RDBFilename+".test", database.RDBFilename)
+	// Create client
+	client := newClient()
+	// Start the Redis server
+	startRedis := true
+	start(t, client, startRedis)
+	if startRedis {
+		defer func() {
+			client.Close()
+			stop(t)
+		}()
+	}
+	// Check if the data is loaded
+	mylistKey := client.LRange("mylist", 0, -1)
+	if mylistKey.Err() != nil {
+		t.Fatalf("Could not get range of values: %v", mylistKey.Err())
+	}
+	if len(mylistKey.Val()) != 3 {
+		t.Fatalf("Expected list length to be 3: %v", len(mylistKey.Val()))
+	}
+
+	// TODO check the rest...
 }

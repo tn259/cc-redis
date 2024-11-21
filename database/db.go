@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -32,11 +33,22 @@ type DB struct {
 var db *DB
 var once sync.Once
 
-// NewStringsDB creates a new instance of StringsDB.
 func Database() *DB {
 	once.Do(func() {
 		db = &DB{
 			data: make(map[string]interface{}),
+		}
+		// Load the database from the RDB file
+		if RDBFileExists() {
+			reader := NewRDBReader(db)
+			err := reader.Read()
+			if err != nil {
+				log.Println("error reading RDB file:", err)
+				// reset the database in case of inconsistent data
+				db = &DB{
+					data: make(map[string]interface{}),
+				}
+			}
 		}
 	})
 	return db
