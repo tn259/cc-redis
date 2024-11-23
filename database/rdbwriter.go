@@ -22,9 +22,6 @@ func (r *RDBWriter) Write() error {
 	}
 	defer file.Close()
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
 	// Magic number
 	_, err = file.Write([]byte(RDBMagicNumber))
 	if err != nil {
