@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -110,6 +111,7 @@ func rdbWriteListValue(l *dblist, f *os.File) error {
 	for n := l.head; n != nil; n = n.next {
 		listSize++
 	}
+	log.Printf("List size: %d", listSize)
 	// TODO handle lists with length > 63
 	_, err = f.Write([]byte{byte(listSize)})
 	if err != nil {

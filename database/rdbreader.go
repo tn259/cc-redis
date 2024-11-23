@@ -52,7 +52,17 @@ func (r *RDBReader) Read() error {
 
 	// Key-value pairs
 	for {
-		key, err := rdbReadString(rdb)
+		eofOrLength := make([]byte, 1)
+		_, err := io.ReadFull(rdb, eofOrLength)
+		if err != nil {
+			return err
+		}
+
+		if string(eofOrLength) == RDBEOF {
+			break
+		}
+
+		key, err := rdbReadString(rdb, eofOrLength)
 		if err == io.EOF {
 			break
 		}
@@ -68,7 +78,7 @@ func (r *RDBReader) Read() error {
 
 		switch string(valueType[0]) {
 		case RDBStringType:
-			value, err := rdbReadString(rdb)
+			value, err := rdbReadString(rdb, nil)
 			if err != nil {
 				return err
 			}
@@ -79,12 +89,14 @@ func (r *RDBReader) Read() error {
 				return err
 			}
 			for _, value := range list {
-				r.db.ListLPush(key, value)
+				r.db.ListRPush(key, value)
 			}
 		default:
 			return fmt.Errorf("unsupported value type %d", valueType[0])
 		}
 	}
+
+	// TODO CRC64 checksum
 
 	return nil
 }
@@ -99,7 +111,7 @@ func rdbReadList(rdb *os.File) ([]string, error) {
 	// TODO support lengths > 63
 	data := make([]string, int(length[0]))
 	for i := 0; i < int(length[0]); i++ {
-		value, err := rdbReadString(rdb)
+		value, err := rdbReadString(rdb, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -108,16 +120,18 @@ func rdbReadList(rdb *os.File) ([]string, error) {
 	return data, nil
 }
 
-func rdbReadString(rdb *os.File) (string, error) {
-	length := make([]byte, 1)
-	_, err := io.ReadFull(rdb, length)
-	if err != nil {
-		return "", err
+func rdbReadString(rdb *os.File, length []byte) (string, error) {
+	if length == nil {
+		length = make([]byte, 1)
+		_, err := io.ReadFull(rdb, length)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// TODO support lengths > 63
 	data := make([]byte, int(length[0]))
-	_, err = io.ReadFull(rdb, data)
+	_, err := io.ReadFull(rdb, data)
 	if err != nil {
 		return "", err
 	}

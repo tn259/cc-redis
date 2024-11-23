@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"os/exec"
 	"syscall"
@@ -54,28 +53,6 @@ func stop(t *testing.T) {
 	}
 	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
 		t.Fatalf("Could not stop Redis server: %v", err)
-	}
-}
-func fileContentsEqual(t *testing.T, file1, file2 string) bool {
-	// The files we are testing are not intended to be large
-	b1, err := os.ReadFile(file1)
-	if err != nil {
-		t.Fatalf("Could not read file: %v", err)
-	}
-	b2, err := os.ReadFile(file2)
-	if err != nil {
-		t.Fatalf("Could not read file: %v", err)
-	}
-
-	return bytes.Equal(b1, b2)
-}
-func copyFile(t *testing.T, src, dst string) {
-	b, err := os.ReadFile(src)
-	if err != nil {
-		t.Fatalf("Could not read file: %v", err)
-	}
-	if err := os.WriteFile(dst, b, 0666); err != nil {
-		t.Fatalf("Could not write file: %v", err)
 	}
 }
 func removeFile(t *testing.T, file string) {
@@ -268,20 +245,6 @@ func ListTest(t *testing.T, client *redis.Client) {
 	}
 }
 
-func SaveTest(t *testing.T, client *redis.Client) {
-	// At this point the redis should have the following data...
-	// Save the database
-	cmd := client.Save()
-	if cmd.Err() != nil {
-		t.Fatalf("Could not save the database: %v", cmd.Err())
-	}
-	defer removeFile(t, database.RDBFilename)
-	// Direct file comparison
-	if !fileContentsEqual(t, database.RDBFilename, database.RDBFilename+".test") {
-		t.Fatalf("Expected files to be equal")
-	}
-}
-
 func TestRedisCommands(t *testing.T) {
 	// Define the commands to be sent during the test
 	tests := []struct {
@@ -296,7 +259,6 @@ func TestRedisCommands(t *testing.T) {
 		{name: "Incr", test: IncrTest},
 		{name: "Decr", test: DecrTest},
 		{name: "ListTest", test: ListTest},
-		{name: "Save", test: SaveTest},
 		// Add more commands here...
 	}
 
@@ -320,9 +282,69 @@ func TestRedisCommands(t *testing.T) {
 	}
 }
 
-func TestRedisCommands_ReadOnStartup(t *testing.T) {
-	// Copy the test RDB file to the actual RDB file
-	copyFile(t, database.RDBFilename+".test", database.RDBFilename)
+func Save(t *testing.T) {
+	// Create client
+	client := newClient()
+	// Start the Redis server
+	startRedis := true
+	start(t, client, startRedis)
+	if startRedis {
+		defer func() {
+			client.Close()
+			stop(t)
+		}()
+	}
+
+	// Set values
+	err := client.RPush("mylist", "value2").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.RPush("mylist", "value1").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.RPush("mylist", "value3").Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("stringkey", "qwerty", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("key2", "value1", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("nonexistentkey", "1", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("intkey", "24", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("stringkey2", "qwerty", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("nonexistentkey2", "-1", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+	err = client.Set("intkey2", "22", 0).Err()
+	if err != nil {
+		t.Fatalf("Could not set key-value pair: %v", err)
+	}
+
+	// Save the database
+	cmd := client.Save()
+	if cmd.Err() != nil {
+		t.Fatalf("Could not save the database: %v", cmd.Err())
+	}
+}
+
+func Read(t *testing.T) {
 	// Create client
 	client := newClient()
 	// Start the Redis server
@@ -344,5 +366,66 @@ func TestRedisCommands_ReadOnStartup(t *testing.T) {
 		t.Fatalf("Expected list length to be 3: %v", len(mylistKey.Val()))
 	}
 
-	// TODO check the rest...
+	stringkey := client.Get("stringkey")
+	if stringkey.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", stringkey.Err())
+	}
+	if stringkey.Val() != "qwerty" {
+		t.Fatalf("Expected value to be 'qwerty': %v", stringkey.Val())
+	}
+
+	key2 := client.Get("key2")
+	if key2.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", key2.Err())
+	}
+	if key2.Val() != "value1" {
+		t.Fatalf("Expected value to be 'value1': %v", key2.Val())
+	}
+
+	nonexistentkey := client.Get("nonexistentkey")
+	if nonexistentkey.Err() != nil {
+		t.Fatalf("Expected key to be nil: %v", nonexistentkey.Err())
+	}
+	if nonexistentkey.Val() != "1" {
+		t.Fatalf("Expected value to be empty: %v", nonexistentkey.Val())
+	}
+
+	intkey := client.Get("intkey")
+	if intkey.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", intkey.Err())
+	}
+	if intkey.Val() != "24" {
+		t.Fatalf("Expected value to be '24': %v", intkey.Val())
+	}
+
+	stringkey2 := client.Get("stringkey2")
+	if stringkey2.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", stringkey2.Err())
+	}
+	if stringkey2.Val() != "qwerty" {
+		t.Fatalf("Expected value to be 'qwerty': %v", stringkey2.Val())
+	}
+
+	nonexistentkey2 := client.Get("nonexistentkey2")
+	if nonexistentkey2.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", nonexistentkey2.Err())
+	}
+	if nonexistentkey2.Val() != "-1" {
+		t.Fatalf("Expected value to be empty: %v", nonexistentkey2.Val())
+	}
+
+	intkey2 := client.Get("intkey2")
+	if intkey2.Err() != nil {
+		t.Fatalf("Could not get key-value pair: %v", intkey2.Err())
+	}
+	if intkey2.Val() != "22" {
+		t.Fatalf("Expected value to be '22': %v", intkey2.Val())
+	}
+}
+
+func TestRedisCommands_SaveThenRead(t *testing.T) {
+	Save(t)
+	// At this point a database file should have been created
+	// Restart the server to load the database file
+	Read(t)
 }
