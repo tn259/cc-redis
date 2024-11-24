@@ -9,6 +9,11 @@ import (
 	"github.com/tn259/cc-redis/resp"
 )
 
+type Command struct {
+	cmd  resp.Command
+	conn *net.Conn
+}
+
 func main() {
 	// Open log file
 	lf, err := os.OpenFile("cc-redis.log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -30,20 +35,28 @@ func main() {
 	}
 	defer listener.Close()
 
-	// Accept client connections
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Println("Error: listener.Accept():", err)
-			continue
-		}
+	commandChan := make(chan *Command)
 
-		// Handle client connection in a separate goroutine
-		go handleConnection(conn)
+	// Accept client connections
+	go func(c chan *Command) {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				log.Println("Error: listener.Accept():", err)
+				continue
+			}
+
+			// Handle client connection in a separate goroutine
+			go handleConnection(conn, c)
+		}
+	}(commandChan)
+
+	for c := range commandChan {
+		handleCommand(c)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, commandChan chan *Command) {
 	defer conn.Close()
 
 	b := make([]byte, 1024)
@@ -65,20 +78,27 @@ func handleConnection(conn net.Conn) {
 			continue
 		}
 
-		// Execute the command
-		res, err := cmd.Execute()
-		if err != nil {
-			log.Println("Error: cmd.Execute():", err)
-			rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
-			conn.Write([]byte(rErr.Serialize()))
-			continue
-		}
+		// Send the command to the command channel
+		commandChan <- &Command{cmd: cmd, conn: &conn}
+	}
+}
 
-		// Serialize the command response
-		_, err = conn.Write([]byte(res.Serialize()))
+func handleCommand(c *Command) {
+	// Execute the command
+	res, err := c.cmd.Execute()
+	if err != nil {
+		log.Println("Error: cmd.Execute():", err)
+		rErr := &resp.Error{Prefix: "ERR", Message: err.Error()}
+		_, err := (*c.conn).Write([]byte(rErr.Serialize()))
 		if err != nil {
 			log.Println("Error: conn.Write():", err)
-			continue
 		}
+		return
+	}
+
+	// Serialize the command response
+	_, err = (*c.conn).Write([]byte(res.Serialize()))
+	if err != nil {
+		log.Println("Error: conn.Write():", err)
 	}
 }
