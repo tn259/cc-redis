@@ -78,6 +78,7 @@ func (db *DB) Get(key string) (string, bool) {
 		db.mu.RUnlock()
 		// Passive expiry
 		// TODO implement active expiry - https://redis.io/commands/expire
+		// Or using the Redlock algorithm - https://redis.io/topics/distlock
 		db.Delete([]string{key})
 		return "", false
 	}
