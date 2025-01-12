@@ -27,7 +27,6 @@ type dblist struct {
 // db represents a Redis in-memory strings database.
 type DB struct {
 	data map[string]interface{}
-	mu   sync.RWMutex
 }
 
 var db *DB
@@ -56,40 +55,31 @@ func Database() *DB {
 
 // Set sets the value of a key in the database.
 func (db *DB) Set(key, value string, expiry *time.Time) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	db.data[key] = dbstring{value: value, expiry: expiry}
 }
 
 // Get retrieves the value of a key from the database.
 func (db *DB) Get(key string) (string, bool) {
-	db.mu.RLock()
 	e, ok := db.data[key]
 	if !ok {
-		db.mu.RUnlock()
 		return "", false
 	}
 	s, ok := e.(dbstring)
 	if !ok {
-		db.mu.RUnlock()
 		return "", false
 	}
 	if s.expiry != nil && s.expiry.Before(time.Now()) {
-		db.mu.RUnlock()
 		// Passive expiry
 		// TODO implement active expiry - https://redis.io/commands/expire
 		// Or using the Redlock algorithm - https://redis.io/topics/distlock
 		db.Delete([]string{key})
 		return "", false
 	}
-	db.mu.RUnlock()
 	return s.value, ok
 }
 
 // Delete deletes a key from the database.
 func (db *DB) Delete(keys []string) int {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	c := 0
 	for _, key := range keys {
 		_, ok := db.data[key]
@@ -104,8 +94,6 @@ func (db *DB) Delete(keys []string) int {
 
 // ListLPush adds an element to the head of a list.
 func (db *DB) ListLPush(key, value string) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	e, ok := db.data[key]
 	if !ok {
 		l := &dblist{}
@@ -128,8 +116,6 @@ func (db *DB) ListLPush(key, value string) error {
 
 // ListRPush adds an element to the tail of a list.
 func (db *DB) ListRPush(key, value string) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	e, ok := db.data[key]
 	if !ok {
 		l := &dblist{}
@@ -159,8 +145,6 @@ func (db *DB) ListRange(key, start, stop string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid stop index %s", stop)
 	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	e, ok := db.data[key]
 	if !ok {
 		return nil, fmt.Errorf("key %s does not exist", key)
